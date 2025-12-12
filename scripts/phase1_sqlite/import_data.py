@@ -6,7 +6,7 @@ from typing import List, Tuple, Any
 # Chemin vers la base de données SQLite
 DB_PATH = "data/imdb.db"
 # Chemin vers le répertoire des fichiers CSV
-CSV_DIR = "data/csv/imdb-small/"
+CSV_DIR = "data/csv/imdb-medium/"
 
 # Liste ordonnée des tables et des fichiers CSV correspondants
 # L'ordre est crucial pour respecter les contraintes de clés étrangères (tables parentes avant enfants)
