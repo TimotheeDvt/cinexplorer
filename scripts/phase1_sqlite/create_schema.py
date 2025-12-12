@@ -53,8 +53,8 @@ def create_schema():
     CREATE TABLE IF NOT EXISTS Characters (
         MID varchar(50) NOT NULL,
         PID varchar(50) NOT NULL,
-        name varchar(255),
-        PRIMARY KEY (MID, PID),
+        name varchar(255) NOT NULL,
+        PRIMARY KEY (MID, PID, name),
         FOREIGN KEY (MID) REFERENCES Movies(MID) ON DELETE CASCADE,
         FOREIGN KEY (PID) REFERENCES Persons(PID) ON DELETE CASCADE
     );

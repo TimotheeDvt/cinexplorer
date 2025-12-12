@@ -6,7 +6,7 @@ from typing import List, Tuple, Any
 # Chemin vers la base de données SQLite
 DB_PATH = "data/imdb.db"
 # Chemin vers le répertoire des fichiers CSV
-CSV_DIR = "data/csv/small/"
+CSV_DIR = "data/csv/imdb-small/"
 
 # Liste ordonnée des tables et des fichiers CSV correspondants
 # L'ordre est crucial pour respecter les contraintes de clés étrangères (tables parentes avant enfants)
@@ -56,7 +56,7 @@ def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> in
     print(f"\n--- Import de la table {table_name} à partir de {csv_file} ---")
     start_time = time.time()
 
-    foreign_key_tables = ["Directors", "Writers", "Principals", "Characters", "KnownForMovies", "Ratings", "Titles", "Genres", "Professions"]
+    foreign_key_tables = ["Ratings", "Directors", "Writers", "Principals", "Characters", "KnownForMovies", "Titles", "Episodes"]
 
     disable_fk = table_name in foreign_key_tables
     if disable_fk:
@@ -64,30 +64,44 @@ def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> in
         print("⚠️ PRAGMA foreign_keys = OFF (Temporairement désactivé)")
 
     try:
-        # Lire le CSV
+        # 1. Lire le CSV
         df = pd.read_csv(csv_path, sep=',', encoding='utf-8')
+
+        # 2. **MODIFICATION DEMANDÉE : Nettoyer les noms de colonnes**
+        original_cols = df.columns.tolist()
+
+        # Le format semble être '("nom_colonne")'.
+        # On enlève la parenthèse ouvrante et les guillemets : on supprime les 2 premiers caractères.
+        # On enlève la parenthèse fermante et les guillemets : on supprime les 3 derniers caractères.
+        new_cols = [col[2:-3] for col in original_cols]
+
+        df.columns = new_cols
+        # print(f"🧹 Noms de colonnes nettoyés de: {original_cols} à: {new_cols}")
+
+
+        # 3. Nettoyage et préparation des données
         df_cleaned = clean_data(df, table_name)
 
-        # Colonnes à insérer
+        # 4. Préparation de la requête SQL
         columns = df_cleaned.columns.tolist()
         placeholders = ', '.join(['?'] * len(columns))
 
-        # Utiliser 'INSERT OR IGNORE' pour gérer les contraintes UNIQUE/PRIMARY KEY (comme Professions)
+        # Utiliser 'INSERT OR IGNORE' pour gérer les contraintes UNIQUE/PRIMARY KEY
         insert_query = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
 
-        # Conversion du DataFrame en liste de tuples
+        # 5. Conversion du DataFrame en liste de tuples
         data_to_insert: List[Tuple[Any, ...]] = [tuple(row) for row in df_cleaned.values]
 
-        # Insertion
+        # 6. Insertion
         cursor = conn.cursor()
         cursor.executemany(insert_query, data_to_insert)
 
-        rows_processed = len(data_to_insert)
+        rows_processed = cursor.rowcount # Nombre de lignes insérées (un peu plus précis que len(data_to_insert) si INSERT OR IGNORE)
         conn.commit()
 
         end_time = time.time()
 
-        print(f"✅ {rows_processed} lignes **traitées** dans {table_name} (les lignes en erreur ont été ignorées).")
+        print(f"✅ {rows_processed} lignes **insérées** (sur {len(data_to_insert)} lignes traitées) dans {table_name}.")
         print(f"⏱️ Temps écoulé : {end_time - start_time:.2f} secondes.")
         return rows_processed
 
@@ -103,7 +117,7 @@ def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> in
         print(f"❌ Erreur inattendue: {e}")
         return 0
     finally:
-        # 2. Réactiver la vérification des clés étrangères quoi qu'il arrive
+        # 7. Réactiver la vérification des clés étrangères quoi qu'il arrive
         if disable_fk:
             conn.execute("PRAGMA foreign_keys = ON;")
             print("✅ PRAGMA foreign_keys = ON (Réactivé)")
@@ -116,7 +130,7 @@ def main():
     try:
         # Connexion à la base de données
         conn = sqlite3.connect(DB_PATH)
-        # Activer l'intégrité référentielle (par défaut dans SQLite, mais bon à vérifier)
+        # Activer l'intégrité référentielle
         conn.execute("PRAGMA foreign_keys = ON")
 
         print("🚀 Début de l'importation des données IMDB dans SQLite...")
@@ -134,9 +148,9 @@ def main():
 
     total_end_time = time.time()
 
-    ## Afficher les statistiques d'import [cite: 158]
+    ## Afficher les statistiques d'import
     print("\n--- Statistiques finales ---")
-    print(f"Importation terminée. {total_rows_imported} lignes importées au total.")
+    print(f"Importation terminée. {total_rows_imported} lignes insérées au total.")
     print(f"Temps total écoulé: {total_end_time - total_start_time:.2f} secondes.")
 
 
