@@ -4,20 +4,23 @@ import os
 DB_NAME = './data/imdb.db'
 
 def create_schema():
+    """
+    Crée le schéma de la base de données SQLite IMDB.
+    Définit les tables, les clés primaires et les clés étrangères.
+    """
     print(f"Création de la base de données : {DB_NAME}...")
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Activation des contraintes de clés étrangères (Indispensable pour SQLite)
+    # Activation des contraintes de clés étrangères (Indispensable pour garantir l'intégrité)
     cursor.execute("PRAGMA foreign_keys = ON;")
 
     # =========================================================================
-    # 1. TABLES PRINCIPALES (ENTITÉS)
-    # Ces tables doivent exister pour que MID et PID puissent être référencés
+    # 1. TABLES PRINCIPALES (ENTITÉS) : Films et Personnes
     # =========================================================================
 
-    # Table des Films (Utilise MID comme clé primaire)
+    # Table des Films (Utilise MID comme clé primaire - Movie ID)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Movies (
         MID varchar(50) PRIMARY KEY,
@@ -32,7 +35,7 @@ def create_schema():
     """)
     print("✅ Table 'Movies' créée.")
 
-    # Table des Personnes (Utilise PID comme clé primaire)
+    # Table des Personnes (Utilise PID comme clé primaire - Person ID)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Persons (
         PID varchar(50) PRIMARY KEY,
@@ -44,11 +47,13 @@ def create_schema():
     print("✅ Table 'Persons' créée.")
 
     # =========================================================================
-    # 2. TABLES DE RELATIONS (VOS FICHIERS)
+    # 2. TABLES DE RELATIONS ET D'ATTRIBUTS (Jointures N-M ou 1-1)
     # =========================================================================
 
-    # --- TABLE CHARACTERS ---
-    # Lien N-M entre Movies et Persons (Un acteur joue un personnage dans un film)
+    # --- TABLE Characters ---
+    # Relation N-M entre Movies et Persons (Les personnages joués par des acteurs)
+    # Note : Le nom du personnage est inclus dans la clé primaire pour gérer
+    # les cas où la même personne joue plusieurs rôles dans le même film.
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Characters (
         MID varchar(50) NOT NULL,
@@ -61,8 +66,8 @@ def create_schema():
     """)
     print("✅ Table 'Characters' créée.")
 
-    # --- TABLE DIRECTORS ---
-    # Lien N-M entre Movies et Persons (Un réalisateur dirige un film)
+    # --- TABLE Directors ---
+    # Relation N-M entre Movies et Persons (Les réalisateurs d'un film)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Directors (
         MID varchar(50) NOT NULL,
@@ -74,9 +79,9 @@ def create_schema():
     """)
     print("✅ Table 'Directors' créée.")
 
-    # --- TABLE EPISODES ---
-    # Auto-jointure : Un épisode (MID) appartient à une Série (parentMID)
-    # Les deux sont des références à la table Movies
+    # --- TABLE Episodes ---
+    # Auto-jointure : Un épisode (MID) appartient à une Série (parentMID).
+    # Les deux MID sont des références à la table Movies.
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Episodes (
         MID varchar(50) PRIMARY KEY,
@@ -89,8 +94,8 @@ def create_schema():
     """)
     print("✅ Table 'Episodes' créée.")
 
-# --- TABLE Genres ---
-    # Lien N-M entre Movies et Persons (Un film a un ou pls genres)
+    # --- TABLE Genres ---
+    # Relation N-M entre Movies et Genre (Un film a plusieurs genres)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Genres (
         MID varchar(50) NOT NULL,
@@ -101,8 +106,8 @@ def create_schema():
     """)
     print("✅ Table 'Genres' créée.")
 
-# --- TABLE KnowForMovies ---
-    # Lien N-M entre Movies et Persons (Une personne est connue pour un ou pls films)
+    # --- TABLE KnownForMovies ---
+    # Relation N-M entre Movies et Persons (Les films pour lesquels une personne est connue)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS KnownForMovies (
         PID varchar(50) NOT NULL,
@@ -114,8 +119,9 @@ def create_schema():
     """)
     print("✅ Table 'KnownForMovies' créée.")
 
-# --- TABLE Principals ---
-    # Lien N-M entre Movies et Persons (Une personne a un rôle dans un film)
+    # --- TABLE Principals ---
+    # Relation N-M entre Movies et Persons (Rôles principaux : acteurs, réalisateurs, etc.)
+    # Note : Clé primaire sur MID et PID pour éviter les doublons de rôle pour une personne dans un film.
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Principals (
         MID varchar(50) NOT NULL,
@@ -130,8 +136,8 @@ def create_schema():
     """)
     print("✅ Table 'Principals' créée.")
 
-# --- TABLE Professions ---
-    # Lien N-M entre Movies et Persons (Une personne a une ou pls professions)
+    # --- TABLE Professions ---
+    # Relation N-M entre Persons et Profession (Les professions d'une personne)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Professions (
         PID varchar(50) NOT NULL,
@@ -142,8 +148,8 @@ def create_schema():
     """)
     print("✅ Table 'Professions' créée.")
 
-# --- TABLE Ratings ---
-    # Lien N-M entre Movies et Persons (Un film a une note et un nb de votes)
+    # --- TABLE Ratings ---
+    # Relation 1-1 ou 1-N entre Movies et Ratings (Note moyenne et nombre de votes)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Ratings (
         MID varchar(50) NOT NULL,
@@ -156,8 +162,8 @@ def create_schema():
     print("✅ Table 'Ratings' créée.")
 
 
-# --- TABLE Titles ---
-    # Lien N-M entre Movies et Persons (Un film a un ou pls titres (selon le pays))
+    # --- TABLE Titles ---
+    # Relation N-M entre Movies et Titres (Différents titres d'un film selon la région)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Titles (
         MID varchar(50) NOT NULL,
@@ -174,8 +180,8 @@ def create_schema():
     """)
     print("✅ Table 'Titles' créée.")
 
-# --- TABLE Writers ---
-    # Lien N-M entre Movies et Persons (Un film est écrit par une ou pls personnes)
+    # --- TABLE Writers ---
+    # Relation N-M entre Movies et Persons (Les scénaristes d'un film)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Writers (
         MID varchar(50) NOT NULL,
@@ -192,7 +198,7 @@ def create_schema():
     print("\n🚀 Schéma terminé avec succès.")
 
 if __name__ == "__main__":
-    # Nettoyage pour repartir à zéro
+    # Nettoyage : Supprime l'ancienne base de données pour repartir sur une base propre
     if os.path.exists(DB_NAME):
         os.remove(DB_NAME)
         print(f"Fichier '{DB_NAME}' supprimé pour réinitialisation.")

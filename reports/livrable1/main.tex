@@ -1,0 +1,173 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+ }
+
+% Configuration pour le code SQL et Python
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{sqlstyle}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegray},
+  keywordstyle=\color{blue}\bfseries,
+  numberstyle=\tiny\color{codegray},
+  stringstyle=\color{codepurple},
+  basicstyle=\footnotesize\ttfamily,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2,
+  language=SQL,
+}
+
+\lstdefinestyle{pythonstyle}{
+  language=Python,
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegray},
+  keywordstyle=\color{red}\bfseries,
+  numberstyle=\tiny\color{codegray},
+  stringstyle=\color{green!60!black},
+  basicstyle=\footnotesize\ttfamily,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2
+}
+
+\begin{document}
+
+\title{Compte Rendu Technique - Livrable 1}
+\author{DRAVET Timothée - FISA INFO 4A}
+\date{Phase 1 : Exploration et base SQLite}
+
+\maketitle
+
+\begin{abstract}
+Ce rapport détaille la réalisation des tâches de la Phase 1 du projet CinéExplorer, axée sur l'analyse exploratoire des données IMDB et la mise en place d'une base de données SQLite normalisée. Nous présentons la conception du schéma relationnel, l'implémentation des requêtes SQL avancées, et les résultats d'un benchmark de performance avant et après l'ajout d'index.
+\end{abstract}
+
+\section{Introduction et Objectifs Atteints}
+
+La Phase 1 a couvert la mise en place de l'infrastructure de données relationnelle du projet en utilisant \textbf{SQLite}. Les objectifs principaux comprenaient la compréhension des données, la conception d'un schéma relationnel normalisé (\textbf{3NF}), l'implémentation de requêtes complexes, et l'optimisation des performances par indexation.
+
+\section{Conception et Mise en Place du Schéma Relationnel (T1.1, T1.2)}
+
+\subsection{Diagramme Entité-Relation (ER)}
+
+Le schéma relationnel a été conçu en 3ème Forme Normale (3NF) pour éviter la redondance et garantir l'intégrité des données. La structure s'articule autour de deux entités principales, \texttt{Movies} (films) et \texttt{Persons} (personnes), et de nombreuses tables d'association (N-M) pour modéliser les relations complexes (casting, réalisateurs, genres, etc.).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=350px]{UML.png}
+    \caption{Diagramme Entité-Relation (ER) de la base de données IMDB SQLite.}
+    \label{fig:er_diagram}
+\end{figure}
+
+L'implémentation du schéma a été réalisée à l'aide du logiciel \texttt{DBeaver}, utilisant les contraintes de clés primaires et étrangères (\texttt{FOREIGN KEY}) avec \texttt{ON DELETE CASCADE} pour maintenir l'intégrité référentielle. Le script \texttt{create\_schema.py} a créé les tables de la base de données  et \texttt{import\_data.py} a géré l'insertion des données depuis les fichiers CSV, en respectant l'ordre d'insertion (\textit{tables parentes avant enfants}) et en utilisant des transactions pour améliorer la performance.
+
+\section{Implémentation des Requêtes SQL (T1.3)}
+
+Les 9 requêtes spécifiées ont été implémentées dans le script \texttt{queries.py}. Elles utilisent des fonctionnalités SQL avancées, telles que les jointures multiples, l'agrégation (\texttt{GROUP BY} avec \texttt{HAVING}), les expressions de table communes (\texttt{WITH} / CTE), et les fonctions de fenêtrage (\texttt{RANK()}).
+
+\subsection{Exemple 1 : Évolution de Carrière (Requête 6)}
+Cette requête utilise une CTE (\texttt{ActorMovies}) pour isoler les films de l'acteur, puis regroupe par décennie et calcule le nombre de films et la note moyenne.
+
+\lstinputlisting[style=sqlstyle, filename=queries.py, firstline=164, lastline=182, caption={Requête 6 : Évolution de carrière (\texttt{query\_evolution\_career})}]{queries.py}
+
+\subsection{Exemple 2 : Acteurs Multi-Rôles (Requête 3)}
+Cette requête trouve les acteurs qui ont plusieurs rôles dans un même film, triés par nombre de rôles.
+
+\lstinputlisting[style=sqlstyle, filename=queries.py, firstline=110, lastline=124, caption={Requête 3 : Acteurs multi-rôles (\texttt{query\_actor\_multi\_roles})}]{queries.py}
+
+\section{Indexation et Benchmark de Performance (T1.4)}
+
+\subsection{Stratégie d'Indexation}
+
+Les index ont été créés dans le script \texttt{benchmark.py} en analysant les besoins des requêtes SQL (filtres, tri, jointures). La stratégie s'est concentrée sur :
+\begin{itemize}
+    \item \textbf{Index sur les colonnes de filtre et de tri :} \texttt{primaryName} (pour les recherches \texttt{LIKE}), \texttt{startYear} (pour les filtres temporels), et un index composite sur \texttt{Ratings(averageRating DESC, numVotes DESC)} pour les classements.
+    \item \textbf{Index de clés étrangères :} Index simples sur les colonnes \texttt{PID} et \texttt{MID} dans les tables de relation (e.g., \texttt{Characters}, \texttt{Principals}) pour accélérer les jointures.
+    \item \textbf{Index Composites :} Par exemple, \texttt{idx\_genres\_genre\_mid} pour optimiser la recherche par genre et la jointure sur \texttt{MID}.
+\end{itemize}
+
+\subsection{Tableau de Benchmark}
+
+Le script \texttt{queries.py} intègre la fonction \texttt{time\_query} pour mesurer le temps d'exécution, permettant de calculer le gain en pourcentage.
+
+\begin{table}[H]
+\centering
+\caption{Résultats du Benchmark des Requêtes SQL}
+\label{tab:benchmark}
+\begin{tabularx}{\linewidth}{|l|X|X|X|}
+\hline
+\textbf{Requête} & \textbf{Sans index (sec)} & \textbf{Avec index (sec)} & \textbf{Gain (\%)} \\
+\hline
+Filmography & $18.0031$ & $14.0658$ & $21.87$ \\
+Top\_N\_Films & $0.3458$ & $0.2320$ & $32.92$ \\
+Multi\_Roles & $20.7881$ & $14.0349$ & $32.49$ \\
+Collaborations & $33.1441$ & $0.9505$ & $97.13$ \\
+Genre\_Pop & $1.5412$ & $0.7850$ & $49.07$ \\
+Career\_Evol & $15.8127$ & $0.5228$ & $96.69$ \\
+Rank\_by\_Genre & $0.9259$ & $0.3312$ & $64.23$ \\
+Career\_Booster & $42.0967$ & $42.4677$ & $0.88$ \\
+Free\_Form & $7.2265$ & $0.0005$ & $99.99$ \\
+\hline
+\multicolumn{4}{l}{\footnotesize \textbf{NOTE :} Temps mesurés sur un jeu de données de taille moyenne (\texttt{imdb-medium}).}
+\end{tabularx}
+\end{table}
+
+\subsection{Impact de l'Indexation sur la Taille de la Base}
+
+Conformément à l'attente d'une base de données indexée, l'ajout des index a entraîné une augmentation significative de la taille du fichier SQLite. Avant l'indexation, la taille de \texttt{imdb.db} était de \textbf{799 204 Ko}. Après la création des index simples et composites, cette taille est passée à \textbf{1 167 352 Ko}, soit une augmentation d'environ 46\,\%. Cette augmentation est nécessaire pour stocker les structures d'index qui permettent les gains de performance massifs observés, notamment sur les requêtes impliquant de multiples jointures et des recherches non exactes (\texttt{Collaborations}, \texttt{Career\_Evol}).
+
+\subsection{Analyse des Gains}
+
+Les résultats ont montré des gains de performance notables, en particulier pour les requêtes impliquant des jointures complexes et des recherches par nom partiel (Requêtes 4, 8, 3). Ces gains confirment la pertinence des index créés sur les clés étrangères (\texttt{PID}, \texttt{MID}) et les index composites pour les regroupements.
+
+\section{Conclusion de la Phase 1 : Bilan SQLite et Transition}
+
+La Phase 1 est un succès, avec une base de données SQLite structurée et normalisée (3NF). La validation des 9 requêtes SQL avancées, impliquant des jointures complexes, des agrégations et des fonctions de fenêtrage, démontre la maîtrise de l'approche relationnelle. De plus, l'optimisation des performances par une stratégie d'indexation ciblée a permis des gains significatifs, posant une base de données performante pour l'application Django.
+
+Cependant, l'utilisation d'une structure fortement normalisée présente des inconvénients pour certaines tâches, notamment :
+\begin{itemize}
+    \item \textbf{Complexité} des Requêtes de Récupération Complète : L'accès à l'information complète d'un film (acteurs, réalisateurs, notes, genres) nécessite des \texttt{JOIN} multiples, rendant les requêtes de détail d'objet verbeuses et plus complexes à maintenir.
+    \item \textbf{Rigidité Schématique} : Le modèle relationnel impose une structure rigide, ce qui pourrait ralentir l'évolution si de nouvelles données devaient être ajoutées.
+    \item \textbf{Coût d'Indexation} : L'obtention de performances optimales a entraîné une augmentation de la taille du fichier SQLite (passant de 799 Mo à 1167 Mo), un compromis entre la vitesse d'exécution et l'espace de stockage.
+\end{itemize}
+
+Cela justifie la transition vers la \textbf{Phase 2 : Migration MongoDB}. L'objectif de cette prochaine phase sera de tirer parti de la flexibilité du modèle orienté document (NoSQL) pour simplifier les requêtes de lecture complexes, notamment l'affichage du détail d'un film en utilisant des documents dénormalisés pré-agrégés.
+
+\end{document}

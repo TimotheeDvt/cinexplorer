@@ -9,75 +9,69 @@ DB_PATH = "data/imdb.db"
 CSV_DIR = "data/csv/imdb-medium/"
 
 # Liste ordonnée des tables et des fichiers CSV correspondants
-# L'ordre est crucial pour respecter les contraintes de clés étrangères (tables parentes avant enfants)
+# L'ordre est crucial : les tables parentes (celles qui ne contiennent que la clé primaire)
+# doivent être importées avant les tables enfants/associatives (celles qui contiennent des clés étrangères)
 TABLE_CONFIG: List[Tuple[str, str]] = [
-    # Tables parentes
+    # Tables Parentes (Clés primaires sans références externes initiales)
     ("Persons", "persons.csv"),
     ("Movies", "movies.csv"),
-    ("Genres", "genres.csv"), # Peut-être aussi parent
-    # Tables enfants/associatives
+    ("Genres", "genres.csv"),
+    # Tables Enfants/Associatives (Contiennent des clés étrangères)
     ("Ratings", "ratings.csv"),
     ("Directors", "directors.csv"),
     ("Writers", "writers.csv"),
     ("Principals", "principals.csv"),
     ("Characters", "characters.csv"),
-
     ("Titles", "titles.csv"),
     ("Professions", "professions.csv"),
     ("KnownForMovies", "knownformovies.csv"),
-
     ('Episodes', 'episodes.csv'),
 ]
 
 def clean_data(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
-    """Nettoie et prépare le DataFrame pour l'insertion.
-
-    NOTE : Cette fonction est simplifiée. Dans un vrai projet, elle devrait
-    inclure une gestion plus robuste des NaN, des types de données, et des
-    valeurs invalides.
+    """
+    Nettoie et prépare le DataFrame pour l'insertion dans SQLite.
+    Gère les valeurs manquantes et assure les types de données appropriés.
     """
 
-    # Remplacer les NaN (valeurs manquantes) par None pour SQLite
+    # Remplacer les NaN (valeurs manquantes) par None pour une insertion correcte dans SQLite
     df = df.where(pd.notnull(df), None)
 
-    # Exemples de nettoyage par table
-    if table_name == "movies":
-        # S'assurer que 'year' et 'runtime' sont des entiers (ou None)
-        df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int64')
-        df['runtime'] = pd.to_numeric(df['runtime'], errors='coerce').astype('Int64')
-
+    # Assurer les types de colonnes spécifiques (exemple pour 'Movies')
+    if table_name == "Movies":
+        # Convertir 'startYear' et 'runtimeMinutes' en entiers (Int64 supporte les NaN)
+        df['startYear'] = pd.to_numeric(df['startYear'], errors='coerce').astype('Int64')
+        df['runtimeMinutes'] = pd.to_numeric(df['runtimeMinutes'], errors='coerce').astype('Int64')
 
     return df
 
 def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> int:
-    """Charge un fichier CSV et insère les données dans la table SQLite,
-       en désactivant/réactivant temporairement les clés étrangères si nécessaire."""
+    """
+    Charge un fichier CSV, nettoie les données et les insère dans la table SQLite correspondante.
+    Désactive temporairement les clés étrangères pour accélérer l'importation des grandes tables associatives.
+    """
     csv_path = CSV_DIR + csv_file
     print(f"\n--- Import de la table {table_name} à partir de {csv_file} ---")
     start_time = time.time()
 
+    # Tables pour lesquelles on désactive les FK pour une meilleure performance
     foreign_key_tables = ["Ratings", "Directors", "Writers", "Principals", "Characters", "KnownForMovies", "Titles", "Episodes"]
-
     disable_fk = table_name in foreign_key_tables
+
     if disable_fk:
         conn.execute("PRAGMA foreign_keys = OFF;")
-        print("⚠️ PRAGMA foreign_keys = OFF (Temporairement désactivé)")
+        print("⚠️ PRAGMA foreign_keys = OFF (Temporairement désactivé pour l'import)")
 
     try:
         # 1. Lire le CSV
         df = pd.read_csv(csv_path, sep=',', encoding='utf-8')
 
-        # 2. **MODIFICATION DEMANDÉE : Nettoyer les noms de colonnes**
+        # 2. Nettoyer les noms de colonnes : Enlever le format '("nom_colonne")'
         original_cols = df.columns.tolist()
-
-        # Le format semble être '("nom_colonne")'.
-        # On enlève la parenthèse ouvrante et les guillemets : on supprime les 2 premiers caractères.
-        # On enlève la parenthèse fermante et les guillemets : on supprime les 3 derniers caractères.
+        # Supprime les 2 premiers caractères ('("') et les 3 derniers ('")')
         new_cols = [col[2:-3] for col in original_cols]
-
         df.columns = new_cols
         # print(f"🧹 Noms de colonnes nettoyés de: {original_cols} à: {new_cols}")
-
 
         # 3. Nettoyage et préparation des données
         df_cleaned = clean_data(df, table_name)
@@ -86,17 +80,18 @@ def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> in
         columns = df_cleaned.columns.tolist()
         placeholders = ', '.join(['?'] * len(columns))
 
-        # Utiliser 'INSERT OR IGNORE' pour gérer les contraintes UNIQUE/PRIMARY KEY
+        # Utiliser 'INSERT OR IGNORE' pour ignorer les lignes qui violent les contraintes
+        # d'unicité (PRIMARY KEY ou UNIQUE), ce qui est typique lors de l'import.
         insert_query = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
 
-        # 5. Conversion du DataFrame en liste de tuples
+        # 5. Conversion du DataFrame en liste de tuples pour l'insertion multiple (executemany)
         data_to_insert: List[Tuple[Any, ...]] = [tuple(row) for row in df_cleaned.values]
 
-        # 6. Insertion
+        # 6. Insertion des données
         cursor = conn.cursor()
         cursor.executemany(insert_query, data_to_insert)
 
-        rows_processed = cursor.rowcount # Nombre de lignes insérées (un peu plus précis que len(data_to_insert) si INSERT OR IGNORE)
+        rows_processed = cursor.rowcount # Nombre de lignes effectivement insérées
         conn.commit()
 
         end_time = time.time()
@@ -109,12 +104,11 @@ def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> in
         print(f"❌ Erreur: Le fichier CSV {csv_path} est introuvable.")
         return 0
     except sqlite3.Error as e:
-        # Ceci devrait maintenant être beaucoup moins fréquent
         print(f"❌ Erreur SQLite lors de l'import de {table_name}: {e}")
         conn.rollback()
         return 0
     except Exception as e:
-        print(f"❌ Erreur inattendue: {e}")
+        print(f"❌ Erreur inattendue lors de l'import de {table_name}: {e}")
         return 0
     finally:
         # 7. Réactiver la vérification des clés étrangères quoi qu'il arrive
@@ -130,7 +124,7 @@ def main():
     try:
         # Connexion à la base de données
         conn = sqlite3.connect(DB_PATH)
-        # Activer l'intégrité référentielle
+        # S'assurer que les clés étrangères sont ON pour l'ensemble de la session (sauf désactivation locale)
         conn.execute("PRAGMA foreign_keys = ON")
 
         print("🚀 Début de l'importation des données IMDB dans SQLite...")
