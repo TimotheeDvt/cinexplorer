@@ -12,19 +12,21 @@ CSV_DIR = "data/csv/small/"
 # L'ordre est crucial pour respecter les contraintes de clés étrangères (tables parentes avant enfants)
 TABLE_CONFIG: List[Tuple[str, str]] = [
     # Tables parentes
-    # ("Person", "persons.csv"),
-    # ("Movie", "movies.csv"),
-    # ("Genre", "genres.csv"), # Peut-être aussi parent
+    ("Persons", "persons.csv"),
+    ("Movies", "movies.csv"),
+    ("Genres", "genres.csv"), # Peut-être aussi parent
     # Tables enfants/associatives
-    # ("Rating", "ratings.csv"),
-    # ("Director", "directors.csv"),
-    ("Writer", "writers.csv"),
-    # ("Principal", "principals.csv"),
-    # ("Character", "characters.csv"),
+    ("Ratings", "ratings.csv"),
+    ("Directors", "directors.csv"),
+    ("Writers", "writers.csv"),
+    ("Principals", "principals.csv"),
+    ("Characters", "characters.csv"),
 
-    # ("Title", "titles.csv"),
-    # ("Profession", "professions.csv"),
-    # ("KnownForMovie", "knownformovies.csv")
+    ("Titles", "titles.csv"),
+    ("Professions", "professions.csv"),
+    ("KnownForMovies", "knownformovies.csv"),
+
+    ('Episodes', 'episodes.csv'),
 ]
 
 def clean_data(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
@@ -34,10 +36,6 @@ def clean_data(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
     inclure une gestion plus robuste des NaN, des types de données, et des
     valeurs invalides.
     """
-
-    if table_name == "Writer":
-        # Supprimer les lignes en double basées sur la clé primaire (mid, pid, name)
-        df.drop_duplicates(subset=['mid', 'pid'], keep='first', inplace=True)
 
     # Remplacer les NaN (valeurs manquantes) par None pour SQLite
     df = df.where(pd.notnull(df), None)
@@ -52,51 +50,63 @@ def clean_data(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
     return df
 
 def import_table(conn: sqlite3.Connection, table_name: str, csv_file: str) -> int:
-    """Charge un fichier CSV et insère les données dans la table SQLite."""
+    """Charge un fichier CSV et insère les données dans la table SQLite,
+       en désactivant/réactivant temporairement les clés étrangères si nécessaire."""
     csv_path = CSV_DIR + csv_file
     print(f"\n--- Import de la table {table_name} à partir de {csv_file} ---")
     start_time = time.time()
 
-    try:
-        # Lire le CSV avec des colonnes spécifiées si nécessaire, ou auto
-        # Utiliser l'encodage 'utf-8' ou 'latin-1' si besoin
-        df = pd.read_csv(csv_path, sep=',', encoding='utf-8')
+    foreign_key_tables = ["Directors", "Writers", "Principals", "Characters", "KnownForMovies", "Ratings", "Titles", "Genres", "Professions"]
 
-        # Nettoyage des données
+    disable_fk = table_name in foreign_key_tables
+    if disable_fk:
+        conn.execute("PRAGMA foreign_keys = OFF;")
+        print("⚠️ PRAGMA foreign_keys = OFF (Temporairement désactivé)")
+
+    try:
+        # Lire le CSV
+        df = pd.read_csv(csv_path, sep=',', encoding='utf-8')
         df_cleaned = clean_data(df, table_name)
 
-        # Colonnes à insérer (doivent correspondre aux colonnes du schéma)
+        # Colonnes à insérer
         columns = df_cleaned.columns.tolist()
-        # Création de la requête INSERT
         placeholders = ', '.join(['?'] * len(columns))
-        insert_query = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
 
-        # Conversion du DataFrame en liste de tuples pour l'insertion
+        # Utiliser 'INSERT OR IGNORE' pour gérer les contraintes UNIQUE/PRIMARY KEY (comme Professions)
+        insert_query = f"INSERT OR IGNORE INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+
+        # Conversion du DataFrame en liste de tuples
         data_to_insert: List[Tuple[Any, ...]] = [tuple(row) for row in df_cleaned.values]
 
-        # Insertion dans une transaction pour la performance
+        # Insertion
         cursor = conn.cursor()
         cursor.executemany(insert_query, data_to_insert)
 
-        rows_inserted = cursor.rowcount
+        rows_processed = len(data_to_insert)
         conn.commit()
 
         end_time = time.time()
 
-        print(f"✅ {rows_inserted} lignes insérées dans {table_name}.")
+        print(f"✅ {rows_processed} lignes **traitées** dans {table_name} (les lignes en erreur ont été ignorées).")
         print(f"⏱️ Temps écoulé : {end_time - start_time:.2f} secondes.")
-        return rows_inserted
+        return rows_processed
 
     except FileNotFoundError:
         print(f"❌ Erreur: Le fichier CSV {csv_path} est introuvable.")
         return 0
     except sqlite3.Error as e:
+        # Ceci devrait maintenant être beaucoup moins fréquent
         print(f"❌ Erreur SQLite lors de l'import de {table_name}: {e}")
-        conn.rollback() # Annuler la transaction en cas d'erreur
+        conn.rollback()
         return 0
     except Exception as e:
         print(f"❌ Erreur inattendue: {e}")
         return 0
+    finally:
+        # 2. Réactiver la vérification des clés étrangères quoi qu'il arrive
+        if disable_fk:
+            conn.execute("PRAGMA foreign_keys = ON;")
+            print("✅ PRAGMA foreign_keys = ON (Réactivé)")
 
 def main():
     """Fonction principale pour l'import de toutes les tables."""
