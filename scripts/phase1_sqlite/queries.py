@@ -19,52 +19,55 @@ def time_query(conn, func, *args, **kwargs) -> Tuple[Any, float]:
 def main():
     conn = None
 
-    benchmark_results: Dict[str, float] = {}
+    benchmark_results: Dict[str, float] = {'Filmography': {'before': 18.003103733062744}, 'Top_N_Films': {'before': 0.34579944610595703}, 'Multi_Roles': {'before': 20.788132905960083}, 'Collaborations': {'before': 33.144147634506226}, 'Genre_Pop': {'before': 1.5411641597747803}, 'Career_Evol': {'before': 15.812682151794434}, 'Rank_by_Genre': {'before': 0.9258627891540527}, 'Career_Booster': {'before': 42.09673237800598}, 'Free_Form': {'before': 7.226547002792358}}
 
     try:
         conn = sqlite3.connect(DB_PATH)
 
-        print("🚀 Démarrage du benchmark des requêtes (sans index)...")
+        print("🚀 Démarrage du benchmark des requêtes...")
         print("-" * 50)
 
         # Exécuter et chronométrer chaque requête
 
         _, t1 = time_query(conn, query_actor_filmography, actor_name="Tom Hanks")
-        benchmark_results['Filmography'] = t1
+        benchmark_results['Filmography']["after"] = t1
 
         _, t2 = time_query(conn, query_top_n_films, genre="Drama", startYear=1990, endYear=2000, n=5)
-        benchmark_results['Top_N_Films'] = t2
+        benchmark_results['Top_N_Films']["after"] = t2
 
         _, t3 = time_query(conn, query_actor_multi_roles, n=10)
-        benchmark_results['Multi_Roles'] = t3
+        benchmark_results['Multi_Roles']["after"] = t3
 
-        _, t4 = time_query(conn, query_collaborations, real="Steven Spielberg", actor="Tom Hanks")
-        benchmark_results['Collaborations'] = t4
+        _, t4 = time_query(conn, query_collaborations, actor="Tom Hanks")
+        benchmark_results['Collaborations']["after"] =t4
+
+        print(_)
 
         _, t5 = time_query(conn, query_genre_popularity, n=10)
-        benchmark_results['Genre_Pop'] = t5
+        benchmark_results['Genre_Pop']["after"] = t5
 
         _, t6 = time_query(conn, query_evolution_career, actor_name="Leonardo DiCaprio")
-        benchmark_results['Career_Evol'] = t6
+        benchmark_results['Career_Evol']["after"] = t6
 
         _, t7 = time_query(conn, query_rank_by_genre, genre="Comedy")
-        benchmark_results['Rank_by_Genre'] = t7
+        benchmark_results['Rank_by_Genre']["after"] = t7
 
         _, t8 = time_query(conn, query_carreer_booster, n=10)
-        benchmark_results['Career_Booster'] = t8
+        benchmark_results['Career_Booster']["after"] = t8
 
         _, t9 = time_query(conn, query_free_form)
-        benchmark_results['Free_Form'] = t9
+        benchmark_results['Free_Form']["after"] = t9
 
+        print(benchmark_results)
 
         print("-" * 50)
         print("✅ Benchmark terminé.")
         print("\n--- Résultats des Temps d'Exécution ---")
 
-        print("{:<20} {:<10}".format('Requête', 'Temps (s)'))
-        print("{:-<20} {:-<10}".format('', ''))
+        print("{:<20} {:<10} {:<10} {:<10}".format('Requête', 'Temps 1', 'Temps 2', 'Gain (%)'))
+        print("{:-<20} {:-<10} {:-<10} {:-<10}".format('', '', '', ''))
         for k, v in benchmark_results.items():
-            print(f"{k:<20} {v:<10.4f}")
+            print(f"{k:<20} {v["before"]:<10.4f} {v["after"]:<10.4f} {(abs(v["before"] - v["after"]) / v["before"] * 100):<10.2f}")
 
 
     except sqlite3.Error as e:
@@ -122,26 +125,24 @@ def query_actor_multi_roles(conn, n) -> list:
     cursor.execute(sql, (n,))
     return cursor.fetchall()
 
-def query_collaborations(conn, real: str, actor: str) -> list:
-    # Réalisateurs ayant travaillé avec un acteur spécifique, avec le nombre de films ensemble (utiliser une sous-requête
+def query_collaborations(conn, actor: str) -> list:
+    # Réalisateurs ayant travaillé avec un acteur spécifique, avec le nombre de films ensemble (utiliser une sous-requête)
     sql = """
-        SELECT pe.primaryName AS director_name, COUNT(m.mid) AS collaboration_count
-        FROM persons pe
-        JOIN principals p ON pe.pid = p.pid
-        JOIN movies m ON p.mid = m.mid
-        WHERE pe.primaryName LIKE ?
-          AND m.mid IN (
-              SELECT m2.mid
-              FROM persons pa
-              JOIN principals p2 ON pa.pid = p2.pid
-              JOIN movies m2 ON p2.mid = m2.mid
-              WHERE pa.primaryName LIKE ?
-            )
-        GROUP BY pe.pid
-        ORDER BY collaboration_count DESC
+        SELECT p_dir.primaryName AS Realisateur, COUNT(d.mid) AS Nombre_de_Films
+        FROM Directors d
+        JOIN Persons p_dir ON d.pid = p_dir.pid
+        JOIN Movies m ON d.mid = m.mid
+        WHERE d.mid IN (
+            SELECT c.mid
+            FROM Characters c
+            JOIN Persons p_act ON c.pid = p_act.pid
+            WHERE p_act.primaryName = ?
+        )
+        GROUP BY p_dir.pid
+        ORDER BY Nombre_de_Films DESC, Realisateur ASC;
     """
     cursor = conn.cursor()
-    cursor.execute(sql, (f'%{real}%', f'%{actor}%'))
+    cursor.execute(sql, (actor,))
     return cursor.fetchall()
 
 def query_genre_popularity(conn, n) -> list:
