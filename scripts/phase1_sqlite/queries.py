@@ -1,32 +1,92 @@
 import sqlite3
-import pandas as pd # Inutile pour cet exemple, mais conservé.
+import time
+from typing import Tuple, Any, Dict
 
 DB_PATH = "data/imdb.db"
 
+def time_query(conn, func, *args, **kwargs) -> Tuple[Any, float]:
+    """
+    Exécute une fonction de requête, mesure son temps, et retourne le résultat et le temps.
+    """
+    start_time = time.time()
+    results = func(conn, *args, **kwargs)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    return results, elapsed_time
+
+
 def main():
-    conn = sqlite3.connect(DB_PATH)
+    conn = None
 
-    result = query(conn)
-    if not result:
-        print("Aucun résultat trouvé.")
-        return
+    benchmark_results: Dict[str, float] = {}
 
-    print(result)
+    try:
+        conn = sqlite3.connect(DB_PATH)
 
-    if conn:
-        conn.close()
+        print("🚀 Démarrage du benchmark des requêtes (sans index)...")
+        print("-" * 50)
+
+        # Exécuter et chronométrer chaque requête
+
+        _, t1 = time_query(conn, query_actor_filmography, actor_name="Tom Hanks")
+        benchmark_results['Filmography'] = t1
+
+        _, t2 = time_query(conn, query_top_n_films, genre="Drama", startYear=1990, endYear=2000, n=5)
+        benchmark_results['Top_N_Films'] = t2
+
+        _, t3 = time_query(conn, query_actor_multi_roles, n=10)
+        benchmark_results['Multi_Roles'] = t3
+
+        _, t4 = time_query(conn, query_collaborations, real="Steven Spielberg", actor="Tom Hanks")
+        benchmark_results['Collaborations'] = t4
+
+        _, t5 = time_query(conn, query_genre_popularity, n=10)
+        benchmark_results['Genre_Pop'] = t5
+
+        _, t6 = time_query(conn, query_evolution_career, actor_name="Leonardo DiCaprio")
+        benchmark_results['Career_Evol'] = t6
+
+        _, t7 = time_query(conn, query_rank_by_genre, genre="Comedy")
+        benchmark_results['Rank_by_Genre'] = t7
+
+        _, t8 = time_query(conn, query_carreer_booster, n=10)
+        benchmark_results['Career_Booster'] = t8
+
+        _, t9 = time_query(conn, query_free_form)
+        benchmark_results['Free_Form'] = t9
+
+
+        print("-" * 50)
+        print("✅ Benchmark terminé.")
+        print("\n--- Résultats des Temps d'Exécution ---")
+
+        print("{:<20} {:<10}".format('Requête', 'Temps (s)'))
+        print("{:-<20} {:-<10}".format('', ''))
+        for k, v in benchmark_results.items():
+            print(f"{k:<20} {v:<10.4f}")
+
+
+    except sqlite3.Error as e:
+        print(f"Erreur SQLite : {e}")
+    finally:
+        if conn:
+            conn.close()
+
+# --------------------------------------------------------------------------
+# Fonctions de Requête
+# --------------------------------------------------------------------------
 
 def query_actor_filmography(conn, actor_name: str) -> list:
     sql = """
         SELECT m.primaryTitle, m.startYear, c.name
         FROM movies m
-        JOIN persons pe ON c.pid = pe.pid -- Jointure avec la personne (nom de l'acteur)
-        JOIN characters c ON m.mid = c.mid AND c.pid = pe.pid
+        JOIN characters c ON m.mid = c.mid
+        JOIN persons pe ON c.pid = pe.pid
         WHERE pe.primaryName LIKE ?
         ORDER BY m.startYear DESC
     """
     search_param = f'%{actor_name}%'
-
     cursor = conn.cursor()
     cursor.execute(sql, (search_param,))
     return cursor.fetchall()
@@ -172,18 +232,6 @@ def query_free_form(conn) -> list:
     cursor = conn.cursor()
     cursor.execute(sql)
     return cursor.fetchall()
-
-
-def query(conn):
-    # return query_actor_filmography(conn, actor_name="Tom Hanks")
-    # return query_top_n_films(conn, genre="Drama", startYear=1990, endYear=2000, n=5)
-    # return query_actor_multi_roles(conn, n=10)
-    # return query_collaborations(conn, real="Steven Spielberg", actor="Tom Hanks")
-    # return query_genre_popularity(conn, n=10)
-    # return query_evolution_career(conn, actor_name="Leonardo DiCaprio")
-    # return query_rank_by_genre(conn, genre="Comedy")
-    # return query_carreer_booster(conn, n=10)
-    return query_free_form(conn)
 
 if __name__ == "__main__":
     main()
