@@ -125,11 +125,27 @@ def migrate_data_in_batches(db: pymongo.database.Database) -> None:
     Migre les données de la collection source vers la collection cible en utilisant des lots.
     """
 
-    total_movies = db[SOURCE_MOVIE_COLLECTION].count_documents({})
-    movie_MIDs_cursor = db[SOURCE_MOVIE_COLLECTION].find({}, {"_id": 0, "MID": 1}).sort([("MID", 1)])
+    # 1. Identifier les MIDs déjà migrés
+    print("Identification des MIDs déjà migrés...")
+    migrated_mids_cursor = db[TARGET_COLLECTION].find({}, {"_id": 1})
+    migrated_mids = {doc["_id"] for doc in migrated_mids_cursor}
 
-    print(f"\n--- Démarrage de la migration par lots ---")
-    print(f"Total de films à traiter : {total_movies}")
+    already_migrated_count = len(migrated_mids)
+    print(f"Films déjà migrés trouvés dans '{TARGET_COLLECTION}' : {already_migrated_count}")
+
+    # 2. Préparer la requête pour n'obtenir que les MIDs NON migrés
+    query = {"MID": {"$nin": list(migrated_mids)}}
+
+    # 3. Calculer les totaux pour le suivi
+    total_movies_original = db[SOURCE_MOVIE_COLLECTION].count_documents({})
+    total_movies_to_process = db[SOURCE_MOVIE_COLLECTION].count_documents(query)
+
+    # 4. Récupérer uniquement les documents restants à traiter
+    movie_MIDs_cursor = db[SOURCE_MOVIE_COLLECTION].find(query, {"_id": 0, "MID": 1}).sort([("MID", 1)])
+
+    print(f"\n--- Démarrage de la REPRISE de migration par lots ---")
+    print(f"Total de films dans la source : {total_movies_original}")
+    print(f"Films restants à traiter : {total_movies_to_process}")
     print(f"Taille des lots : {BATCH_SIZE}")
 
     movies_to_insert = []
@@ -156,15 +172,16 @@ def migrate_data_in_batches(db: pymongo.database.Database) -> None:
                 movies_to_insert = []
 
                 elapsed = time.time() - start_time
-                progress = (processed_count / total_movies) * 100 if total_movies > 0 else 0
 
-                print(f"Progression : {processed_count}/{total_movies} ({progress:.2f}%) - Temps écoulé : {elapsed:.2f}s")
+                current_total = already_migrated_count + processed_count
+                progress = (current_total / total_movies_original) * 100 if total_movies_original > 0 else 0
+
+                print(f"Progression : {current_total}/{total_movies_original} ({progress:.2f}%) - Temps écoulé : {elapsed:.2f}s")
 
             except Exception as e:
                 print(f"Avertissement : Erreur lors de l'insertion du lot. {e}")
                 movies_to_insert = []
 
-    # Insérer le lot final
     if movies_to_insert:
         try:
             db[TARGET_COLLECTION].insert_many(movies_to_insert, ordered=False)
@@ -172,9 +189,10 @@ def migrate_data_in_batches(db: pymongo.database.Database) -> None:
             print(f"Avertissement : Erreur lors de l'insertion du lot final. {e}")
 
     total_time = time.time() - start_time
+    total_migrated_final = already_migrated_count + processed_count
     print("-" * 50)
-    print(f"✅ Migration terminée. Documents traités : {processed_count}")
-    print(f"Temps total écoulé : {total_time:.2f} secondes.")
+    print(f"✅ Reprise de migration terminée. Documents migrés au total : {total_migrated_final}")
+    print(f"Temps écoulé pour ce lot : {total_time:.2f} secondes.")
 
 
 def main():
@@ -186,24 +204,20 @@ def main():
         client.admin.command('ping')
 
         # 2. Création/Vérification des index
-        print("🛠️ Création/Vérification des index pour optimiser les jointures (FIND())...")
-        # Ces index sont cruciaux pour la performance de la migration par lots
         db["ratings"].create_index("MID")
         db["principals"].create_index("MID")
         db["persons"].create_index("PID")
         if "titles" in db.list_collection_names():
             db["titles"].create_index("MID")
         db[SOURCE_MOVIE_COLLECTION].create_index("MID")
+
+        db[TARGET_COLLECTION].create_index("_id")
         print("✅ Index créés ou déjà existants.")
 
-        # 3. Suppression de la collection cible précédente
-        db[TARGET_COLLECTION].drop()
-        print(f"Collection '{TARGET_COLLECTION}' purgée.")
-
-        # 4. Exécution de la migration par lots
+        # 3. Exécution de la migration par lots
         migrate_data_in_batches(db)
 
-        # 5. Affichage d'un aperçu
+        # 4. Affichage d'un aperçu
         sample_doc = db[TARGET_COLLECTION].find_one({"title": "The Shawshank Redemption"})
         if sample_doc:
             print("\n--- Aperçu d'un document dénormalisé (Exemple) ---")
@@ -211,8 +225,6 @@ def main():
         elif db[TARGET_COLLECTION].count_documents({}) > 0:
             print("\n--- Aperçu d'un document dénormalisé (Aléatoire) ---")
             print(json.dumps(db[TARGET_COLLECTION].find_one(), indent=2))
-
-
     except pymongo.errors.ConnectionFailure:
         print(f"❌ Erreur de connexion à MongoDB. Assurez-vous que le serveur est démarré à {MONGO_URI}.")
     except Exception as e:
