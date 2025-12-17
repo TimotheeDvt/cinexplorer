@@ -6,8 +6,6 @@ from typing import Tuple, Any, Dict, Callable, List
 MONGO_URI = "mongodb://localhost:27017/"
 DB_NAME = "IMDB_DB"
 
-# Le client et la connexion sont gérés dans main()
-
 def time_query(db: pymongo.database.Database, func: Callable, *args, **kwargs) -> Tuple[Any, float]:
     """
     Exécute une fonction de requête MongoDB, mesure son temps, et retourne le résultat et le temps d'exécution.
@@ -349,7 +347,7 @@ def query_free_form(db: pymongo.database.Database) -> List[Dict]:
 
 
 # --------------------------------------------------------------------------
-# Fonction Principale de Benchmark
+# Fonction Principale
 # --------------------------------------------------------------------------
 
 def main():

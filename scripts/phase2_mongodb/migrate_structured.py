@@ -7,12 +7,10 @@ import time
 MONGO_URI = "mongodb://localhost:27017/"
 DB_NAME = "IMDB_DB"
 
-# Assurez-vous que ces noms correspondent aux collections créées dans T2.2 (Migration plate)
 SOURCE_MOVIE_COLLECTION = "movies"
 TARGET_COLLECTION = "movies_complete"
 BATCH_SIZE = 1000
 
-# Fonction pour tenter de convertir la chaîne de caractères JSON des personnages en liste Python
 def parse_characters(characters_str: str) -> List[str]:
     """Nettoie et convertit la chaîne 'characters' en liste de chaînes."""
     if not characters_str:
@@ -21,10 +19,8 @@ def parse_characters(characters_str: str) -> List[str]:
     # Remplacer les quotes simples par des quotes doubles pour un JSON valide
     cleaned_str = characters_str.replace("'", '"')
     try:
-        # Tenter le parsing JSON
         return json.loads(cleaned_str)
     except json.JSONDecodeError:
-        # En cas d'échec (données malformées), retourner une liste vide
         return []
 
 
@@ -60,16 +56,13 @@ def create_denormalized_document(db: pymongo.database.Database, movie_MID: str) 
     cast = []
 
     if principals_list:
-        # CORRECTION 1: Filtrer les documents principaux pour s'assurer qu'ils ont un 'PID'
         pid_list = [p.get("PID") for p in principals_list if p.get("PID")]
 
         if pid_list:
-            # Optimisation: Récupération des noms de toutes les personnes liées en une seule requête
             person_details_cursor = db["persons"].find({"PID": {"$in": pid_list}}, {"PID": 1, "primaryName": 1, "_id": 0})
 
-            # CORRECTION 2: S'assurer que les documents 'person' ont un 'PID' et un 'primaryName'
             person_map = {p.get("PID"): p.get("primaryName")
-                          for p in person_details_cursor if p.get("PID") and p.get("primaryName")}
+            for p in person_details_cursor if p.get("PID") and p.get("primaryName")}
 
             for principal in principals_list:
                 person_id = principal.get("PID")
@@ -95,14 +88,11 @@ def create_denormalized_document(db: pymongo.database.Database, movie_MID: str) 
                     cast_info["ordering"] = principal.get("ordering")
                     cast.append(cast_info)
 
-    # 4. Récupération des titres alternatifs (Titles)
-    # NOTE: Cette collection peut ne pas exister si vous n'avez pas importé titles.cSV.
     titles_list = []
     if "titles" in db.list_collection_names():
         titles_cursor = db.get_collection("titles").find({"MID": movie_MID}, {"title": 1, "region": 1, "_id": 0})
         titles_list = list(titles_cursor)
 
-    # 5. Construction du document final
     denormalized_doc = {
         "_id": movie_MID,
         "title": movie_doc.get("primaryTitle"),
