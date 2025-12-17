@@ -576,14 +576,14 @@ def main_queries():
 
 
     # --- AFFICHAGE DES TEMPS D'EXÉCUTION ---
-    print("\n" + "="*76)
-    print("        --- TEMPS D'EXÉCUTION DES REQUÊTES MONGO (secondes) ---")
-    print("="*76)
-    print("| Requête                                  | SQL      | Mongo Denormalized |")
+    print("\n" + "="*87)
+    print("             --- TEMPS D'EXÉCUTION DES REQUÊTES MONGO (secondes) ---")
+    print("="*87)
+    print("| Requête                                  | SQL      |  Mongo Denormalized |   Gain % |")
 
     for query_name, res in query_execution_times.items():
-        print(f"| {query_name:<40} | {'{:6.3f}'.format(res['sql_time'])} s |            {'{:6.3f}'.format(res['mongoNew'])} s|")
-    print("="*76)
+        print(f"| {query_name:<40} | {'{:6.3f}'.format(res['sql_time'])} s |            {'{:6.3f}'.format(res['mongoNew'])} s | {'{:6.3f}'.format(100 * (res['sql_time'] - res['mongoNew']) / res['sql_time'])} % |")
+    print("="*87)
 
     # Fermer la connexion
     if db.client:
