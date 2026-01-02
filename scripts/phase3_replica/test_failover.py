@@ -33,7 +33,7 @@ def cleanup():
 try:
     print("--- ÉTAPE 1: Initialisation ---")
     for i in range(3): start_node(i)
-    
+
     # Connexion flexible (le driver cherchera le Primary parmi les 3)
     uri = f"mongodb://localhost:{PORTS[0]},{PORTS[1]},{PORTS[2]}/?replicaSet={REPL_SET_NAME}"
     client = MongoClient(uri, serverSelectionTimeoutMS=10000)
