@@ -44,4 +44,4 @@ Le projet utilise une séparation stratégique des responsabilités pour maximis
     ```
 
 ---
-*Projet réalisé dans le cadre du module **Bases de Données Avancées (4A-BDA)** à Polytech Marseille.*
+*Projet réalisé dans le cadre du module **Bases de Données Avancées (4A-BDA)** à Polytech Marseille par **Timothée DRAVET**.*
