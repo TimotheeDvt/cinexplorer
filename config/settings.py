@@ -16,6 +16,14 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+
+# Configuration MongoDB (Replica Set)
+MONGODB_SETTINGS = {
+    'host': 'localhost:27017,localhost:27018,localhost:27019',
+    'replicaSet': 'rs0',
+    'db_name': 'IMDB_DB',
+}
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -37,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'movies'
 ]
 
 MIDDLEWARE = [
@@ -75,7 +84,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / "data" / "imdb.db"
     }
 }
 
