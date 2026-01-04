@@ -1,0 +1,6 @@
+# Framework Web Principal
+Django>=6.0
+
+# Connecteurs de Bases de Données
+# Driver officiel pour MongoDB
+pymongo>=4.0
