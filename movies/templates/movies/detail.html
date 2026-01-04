@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load mongo_extras %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="display-5">{{ movie.title }} <small class="text-muted">({{ movie.year|default:"Année inconnue" }})</small></h1>
+        
+        <div class="mb-3">
+            {% for genre in movie.genres %}
+                <span class="badge bg-secondary">{{ genre }}</span>
+            {% empty %}
+                <span class="text-muted italic">Aucun genre répertorié</span>
+            {% endfor %}
+            <span class="ms-3 text-muted">Durée : {{ movie.runtime|default:"--" }} min</span>
+        </div>
+
+        <hr>
+
+        <h3 class="mt-4">Casting</h3>
+        <div class="row row-cols-1 row-cols-sm-2 g-3">
+            {% for actor in movie.cast %}
+            <div class="col">
+                <div class="card h-100 border-0 shadow-sm bg-light">
+                    <div class="card-body py-2">
+                        <strong>{{ actor.name }}</strong><br>
+                        <small class="text-primary">{{ actor.characters|join:", "|default:"-" }}</small>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted ps-3">Information non disponible.</p>
+            {% endfor %}
+        </div>
+
+        {% if movie.titles %}
+        <h3 class="mt-5">Titres par région</h3>
+        <ul class="list-group list-group-flush">
+            {% for alt in movie.titles %}
+            <li class="list-group-item d-flex justify-content-between">
+                <span>{{ alt.title }}</span>
+                <span class="badge bg-light text-dark border">{{ alt.region|default:"International" }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-dark text-white text-center p-3 mb-4">
+            <h2 class="text-warning mb-0">⭐ {{ movie.rating.average|default:"N/A" }}</h2>
+            <small>{{ movie.rating.votes|default:0 }} votes</small>
+        </div>
+
+        <div class="card p-3 mb-4">
+            <h6>Réalisation</h6>
+            <p class="mb-2">
+                {% for d in movie.directors %} {{ d.name }}{% if not forloop.last %}, {% endif %} {% empty %} - {% endfor %}
+            </p>
+            <h6>Scénaristes</h6>
+            <p class="small">
+                {% for w in movie.writers %} {{ w.name }}{% if not forloop.last %}, {% endif %} {% empty %} - {% endfor %}
+            </p>
+        </div>
+
+        {% if similar_movies %}
+        <h5>Films similaires</h5>
+        {% for sim in similar_movies %}
+        <div class="card mb-2 shadow-sm border-0 border-start border-primary border-4">
+            <div class="card-body py-2">
+                <a href="/movies/{{ sim|get_id }}/" class="text-decoration-none fw-bold">{{ sim.title }}</a>
+                <div class="small text-muted">{{ sim.year }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

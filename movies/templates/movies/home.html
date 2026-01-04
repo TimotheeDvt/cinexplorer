@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load mongo_extras %}
+
+{% block content %}
+<div class="row text-center mb-5">
+    <div class="col-md-4">
+        <div class="card border-primary mb-3">
+            <div class="card-body">
+                <h2 class="card-title">{{ stats.movie_count }}</h2>
+                <p class="text-muted">Films</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-success mb-3">
+            <div class="card-body">
+                <h2 class="card-title">{{ stats.person_count }}</h2>
+                <p class="text-muted">Acteurs</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-info mb-3">
+            <div class="card-body">
+                <h2 class="card-title">{{ stats.director_count }}</h2>
+                <p class="text-muted">Réalisateurs</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-light p-5 rounded-3 mb-5 text-center">
+    <h3>Trouver un film ou une personnalité</h3>
+    <form action="{% url 'search' %}" method="get" class="d-flex justify-content-center mt-3">
+        <input name="q" class="form-control form-control-lg w-50 me-2" type="search" placeholder="Titre, nom...">
+        <button class="btn btn-primary btn-lg" type="submit">Rechercher</button>
+    </form>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h3>🔥 Top 10 des mieux notés</h3>
+        <div class="list-group mb-4">
+            {% for movie in top_movies %}
+            <a href="/movies/{{ movie|get_id }}/" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                {{ movie.title }} ({{ movie.year }})
+                <span class="badge bg-warning text-dark">⭐ {{ movie.rating.average }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <h3>🎲 Découverte aléatoire</h3>
+        {% for movie in random_movies %}
+        <div class="card mb-2 shadow-sm">
+            <div class="card-body py-2">
+                <h6 class="mb-0">{{ movie.title }}</h6>
+                <small class="text-muted">{{ movie.year }}</small>
+                <a href="/movies/{{ movie.movie_id }}/" class="stretched-link"></a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

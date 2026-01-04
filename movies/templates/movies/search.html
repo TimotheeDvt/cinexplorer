@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-5 justify-content-center">
+        <div class="col-md-8">
+            <form action="{% url 'search' %}" method="get" class="d-flex shadow-sm">
+                <input name="q" class="form-control form-control-lg me-2" type="search" 
+                       placeholder="Rechercher un film ou une personne..." value="{{ query }}">
+                <button class="btn btn-primary px-4" type="submit">Rechercher</button>
+            </form>
+        </div>
+    </div>
+
+    {% if query %}
+        <h3>Résultats pour : <span class="text-primary">"{{ query }}"</span></h3>
+        <hr>
+
+        <div class="row">
+            <div class="col-md-6 border-end">
+                <h4 class="mb-3"><i class="bi bi-film"></i> Films</h4>
+                <div class="list-group">
+                    {% for movie in results.movies %}
+                    <a href="/movies/{{ movie.movie_id }}/" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between">
+                            <h6 class="mb-0">{{ movie.title }}</h6>
+                            <span class="badge bg-light text-dark">{{ movie.year|default:"-" }}</span>
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="alert alert-light border">Aucun film trouvé.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <h4 class="mb-3"><i class="bi bi-people"></i> Personnalités</h4>
+                <div class="list-group">
+                    {% for person in results.persons %}
+                    <div class="list-group-item">
+                        <h6 class="mb-0">{{ person.name }}</h6>
+                    </div>
+                    {% empty %}
+                    <div class="alert alert-light border">Aucune personne trouvée.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center text-muted mt-5">
+            <p>Saisissez un nom ou un titre pour commencer l'exploration.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

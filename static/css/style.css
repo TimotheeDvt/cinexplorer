@@ -1,0 +1,42 @@
+.skeleton {
+    background: #e0e0e0;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-text { width: 100%; height: 1rem; margin-bottom: 0.5rem; }
+.skeleton-title { width: 60%; height: 1.5rem; margin-bottom: 1rem; }
+.skeleton-card { height: 200px; width: 100%; }
+
+/* Animation de balayage lumineux */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton-chart {
+    height: 300px;
+    width: 100%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 8px;
+}
+
+.hidden-content {
+    display: none;
+}
+
+.chart-container {
+    position: relative;
+    /* height: 40%; */
+    width: 100%;
+}

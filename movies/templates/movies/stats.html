@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Tableau de Bord Statistiques</h2>
+        <div id="global-loader" class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Chargement...</span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm p-3 h-100">
+                <h5>Films par genre</h5>
+                <div class="chart-container">
+                    <div class="skeleton-box" id="sk-genres"></div>
+                    <canvas id="genreChart" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm p-3 h-100">
+                <h5><i class="bi bi-graph-up"></i> Évolution par décennie</h5>
+                <div class="chart-container">
+                    <div class="skeleton-box" id="sk-decades"></div>
+                    <canvas id="decadeChart" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm p-3 h-100">
+                <h5><i class="bi bi-star-half"></i> Distribution des notes</h5>
+                <div class="chart-container">
+                    <div class="skeleton-box" id="sk-ratings"></div>
+                    <canvas id="ratingChart" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm p-3 h-100">
+                <h5><i class="bi bi-person-badge"></i> Top 10 Acteurs Prolifiques</h5>
+                <div class="chart-container">
+                    <div class="skeleton-box" id="sk-actors"></div>
+                    <canvas id="actorChart" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Style pour l'animation du squelette */
+    .skeleton-box {
+        height: 250px;
+        background: #eee;
+        background: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%);
+        background-size: 200% 100%;
+        animation: 1.5s shine linear infinite;
+        border-radius: 5px;
+    }
+    @keyframes shine {
+        to { background-position-x: -200%; }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Appel asynchrone à l'API
+        fetch('/api/stats/')
+            .then(response => response.json())
+            .then(data => {
+                // Masquer le loader global
+                document.getElementById('global-loader').classList.add('d-none');
+
+                // Initialisation des 4 graphiques
+                initChart('genreChart', 'sk-genres', 'bar', data.genres, 'Nombre de films', '#0d6efd');
+                initChart('decadeChart', 'sk-decades', 'line', data.decades, 'Films', '#198754');
+                initChart('ratingChart', 'sk-ratings', 'bar', data.ratings, 'Nombre de films', '#ffc107');
+                initChart('actorChart', 'sk-actors', 'bar', data.actors, 'Nombre de films', '#dc3545');
+            })
+            .catch(error => console.error('Erreur:', error));
+
+        function initChart(canvasId, skeletonId, type, data, label, color) {
+            const canvas = document.getElementById(canvasId);
+            document.getElementById(skeletonId).style.display = 'none';
+            canvas.style.display = 'block';
+
+            // enforce a fixed height (px) for each chart canvas
+            canvas.clientHeight = 250;
+            canvas.style.height = 250 + 'px';
+
+            new Chart(canvas, {
+                type: type,
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        label: label,
+                        data: data.map(d => d.value),
+                        backgroundColor: color,
+                        borderColor: color,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
