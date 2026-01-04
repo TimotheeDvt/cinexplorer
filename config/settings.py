@@ -19,7 +19,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Configuration MongoDB (Replica Set)
 MONGODB_SETTINGS = {
-    'host': 'localhost:27017',
+    'host': 'localhost:27017,localhost:27018,localhost:27019',
+    'replicaSet': 'rs0',
     'db_name': 'IMDB_DB',
 }
 

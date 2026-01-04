@@ -4,7 +4,7 @@ from django.conf import settings
 def get_mongo_client():
     client = MongoClient(
         host=settings.MONGODB_SETTINGS['host'],
-        # replicaset=settings.MONGODB_SETTINGS['replicaSet']
+        replicaset=settings.MONGODB_SETTINGS['replicaSet']
     )
     return client[settings.MONGODB_SETTINGS['db_name']]
 
